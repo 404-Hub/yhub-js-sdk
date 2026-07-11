@@ -1,0 +1,37 @@
+{
+  "name": "@yhub-cloud/sdk",
+  "version": "1.0.0",
+  "description": "Browser and TypeScript client for YHub runtime APIs.",
+  "type": "module",
+  "main": "dist/yhub.js",
+  "module": "dist/yhub.esm.js",
+  "types": "dist/yhub.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/yhub.d.ts",
+      "import": "./dist/yhub.esm.js",
+      "default": "./dist/yhub.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:types": "tsc --noEmit -p tsconfig.json",
+    "check": "npm run build && npm run test && npm run test:types"
+  },
+  "keywords": [
+    "yhub",
+    "sdk",
+    "browser"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}
