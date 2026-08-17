@@ -67,4 +67,52 @@ describe('YhubClient', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('uploads, lists, resolves URLs, and deletes runtime files', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ data: { id: 'file_1', name: 'avatar.png', size: 4, visibility: 'public' } }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'file_1', name: 'avatar.png' }] }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock })
+    const file = await client.files.upload(new Blob(['test'], { type: 'image/png' }), {
+      visibility: 'public',
+      metadata: { source: 'test' },
+    })
+
+    expect(file.id).toBe('file_1')
+    expect(fetchMock.mock.calls[0][1]?.body).toBeInstanceOf(FormData)
+    await expect(client.files.list()).resolves.toHaveLength(1)
+    await expect(client.files.url('file_1')).resolves.toBe('https://demo.yhub.net/api/files/file_1/download')
+    await expect(client.files.delete('file_1')).resolves.toBeUndefined()
+  })
+
+  it('reports browser upload progress through XMLHttpRequest', async () => {
+    const OriginalXHR = globalThis.XMLHttpRequest
+    class MockXHR {
+      upload = { onprogress: (_event: ProgressEvent): void => {} }
+      status = 201
+      responseText = JSON.stringify({ data: { id: 'file_progress', name: 'file.txt' } })
+      open(): void {}
+      setRequestHeader(): void {}
+      send(): void {
+        this.upload.onprogress({ loaded: 5, total: 10, lengthComputable: true } as ProgressEvent)
+        queueMicrotask(() => this.onload?.())
+      }
+      onload?: () => void
+      onerror?: () => void
+    }
+    globalThis.XMLHttpRequest = MockXHR as unknown as typeof XMLHttpRequest
+
+    try {
+      const progress: number[] = []
+      const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock })
+      await client.files.upload(new Blob(['test'], { type: 'text/plain' }), {
+        onProgress: event => progress.push(event.percentage),
+      })
+      expect(progress).toEqual([50])
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      globalThis.XMLHttpRequest = OriginalXHR
+    }
+  })
 })

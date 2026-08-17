@@ -1,6 +1,8 @@
 import { AuthClient, type TokenStore } from './auth.js';
 import { DatabaseClient } from './db.js';
 import { FeatureNamespace } from './feature.js';
+import { FilesClient } from './files.js';
+import type { FileUploadProgress } from './files.js';
 export declare const SDK_VERSION = "1.0.0";
 export interface YhubMeta {
     site?: string;
@@ -32,7 +34,7 @@ interface RequestOptions {
 export declare class YhubClient {
     readonly db: DatabaseClient;
     readonly auth: AuthClient;
-    readonly files: FeatureNamespace;
+    readonly files: FilesClient;
     readonly ai: FeatureNamespace;
     readonly realtime: FeatureNamespace;
     private readonly baseUrl;
@@ -41,6 +43,9 @@ export declare class YhubClient {
     constructor(options?: YhubClientOptions);
     meta(): Promise<YhubMeta>;
     request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
+    requestFormData<T>(method: string, path: string, body: FormData, onProgress?: (progress: FileUploadProgress) => void): Promise<T>;
+    private requestFormDataWithXhr;
+    absoluteUrl(path: string): string;
     private readPayload;
 }
 export {};

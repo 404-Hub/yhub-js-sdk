@@ -6,6 +6,8 @@ export { Collection, DatabaseClient } from './db.js';
 export type { ListOptions, RecordId, YhubRecord } from './db.js';
 export { YhubError } from './error.js';
 export { FeatureNamespace } from './feature.js';
+export { FilesClient } from './files.js';
+export type { FileListOptions, FileUploadOptions, FileUploadProgress, YhubFile } from './files.js';
 import { YhubClient } from './client.js';
 export declare const yhub: YhubClient;
 export default yhub;

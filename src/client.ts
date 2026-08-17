@@ -2,6 +2,8 @@ import { AuthClient, type TokenStore } from './auth.js'
 import { DatabaseClient } from './db.js'
 import { YhubError } from './error.js'
 import { FeatureNamespace } from './feature.js'
+import { FilesClient } from './files.js'
+import type { FileUploadProgress } from './files.js'
 
 export const SDK_VERSION = '1.0.0'
 
@@ -41,7 +43,7 @@ const browserOrigin = (): string =>
 export class YhubClient {
   readonly db: DatabaseClient
   readonly auth: AuthClient
-  readonly files = new FeatureNamespace('files')
+  readonly files: FilesClient
   readonly ai = new FeatureNamespace('ai')
   readonly realtime = new FeatureNamespace('realtime')
 
@@ -61,6 +63,7 @@ export class YhubClient {
 
     this.auth = new AuthClient(this, options.tokenStore, options.token)
     this.db = new DatabaseClient(this)
+    this.files = new FilesClient(this)
   }
 
   meta(): Promise<YhubMeta> {
@@ -121,6 +124,76 @@ export class YhubClient {
     }
 
     return payload as T
+  }
+
+  async requestFormData<T>(method: string, path: string, body: FormData, onProgress?: (progress: FileUploadProgress) => void): Promise<T> {
+    if (onProgress && typeof XMLHttpRequest !== 'undefined') {
+      return this.requestFormDataWithXhr<T>(method, path, body, onProgress)
+    }
+
+    const url = new URL(`${this.baseUrl}${path}`)
+    const headers = new Headers({
+      Accept: 'application/json',
+      'X-YHub-SDK-Version': SDK_VERSION,
+    })
+    const token = await this.auth.token()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    const response = await this.fetcher(url, { method, headers, body })
+    const payload = response.status === 204 ? undefined : await this.readPayload(response)
+    if (!response.ok) {
+      const errorPayload = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
+      throw new YhubError(
+        typeof errorPayload.message === 'string' ? errorPayload.message : `YHub request failed with status ${response.status}.`,
+        response.status,
+        isValidationErrors(errorPayload.errors) ? errorPayload.errors : undefined,
+      )
+    }
+    return payload as T
+  }
+
+  private async requestFormDataWithXhr<T>(method: string, path: string, body: FormData, onProgress: (progress: FileUploadProgress) => void): Promise<T> {
+    const token = await this.auth.token()
+    const url = this.absoluteUrl(path)
+
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open(method, url)
+      xhr.setRequestHeader('Accept', 'application/json')
+      xhr.setRequestHeader('X-YHub-SDK-Version', SDK_VERSION)
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.upload.onprogress = event => {
+        onProgress({
+          loaded: event.loaded,
+          total: event.total,
+          percentage: event.lengthComputable && event.total > 0 ? (event.loaded / event.total) * 100 : 0,
+        })
+      }
+      xhr.onerror = () => reject(new YhubError('YHub request failed.', 0))
+      xhr.onload = () => {
+        let payload: unknown
+        try {
+          payload = xhr.status === 204 ? undefined : (xhr.responseText ? JSON.parse(xhr.responseText) : undefined)
+        } catch {
+          reject(new YhubError('YHub returned an invalid JSON response.', xhr.status))
+          return
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          const errorPayload = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
+          reject(new YhubError(
+            typeof errorPayload.message === 'string' ? errorPayload.message : `YHub request failed with status ${xhr.status}.`,
+            xhr.status,
+            isValidationErrors(errorPayload.errors) ? errorPayload.errors : undefined,
+          ))
+          return
+        }
+        resolve(payload as T)
+      }
+      xhr.send(body)
+    })
+  }
+
+  absoluteUrl(path: string): string {
+    return `${this.baseUrl}${path}`
   }
 
   private async readPayload(response: Response): Promise<unknown> {
