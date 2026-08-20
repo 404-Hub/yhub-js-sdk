@@ -1,4 +1,5 @@
 import { AuthClient, type TokenStore } from './auth.js'
+import { AiClient } from './ai.js'
 import { DatabaseClient } from './db.js'
 import { YhubError } from './error.js'
 import { FeatureNamespace } from './feature.js'
@@ -44,7 +45,7 @@ export class YhubClient {
   readonly db: DatabaseClient
   readonly auth: AuthClient
   readonly files: FilesClient
-  readonly ai = new FeatureNamespace('ai')
+  readonly ai: AiClient
   readonly realtime = new FeatureNamespace('realtime')
 
   private readonly baseUrl: string
@@ -64,6 +65,7 @@ export class YhubClient {
     this.auth = new AuthClient(this, options.tokenStore, options.token)
     this.db = new DatabaseClient(this)
     this.files = new FilesClient(this)
+    this.ai = new AiClient(this)
   }
 
   meta(): Promise<YhubMeta> {

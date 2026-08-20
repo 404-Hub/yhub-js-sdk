@@ -1,4 +1,6 @@
 export { AuthClient } from './auth.js';
+export { AiClient } from './ai.js';
+export type { AiChatOptions, AiChatResult, AiMessage, AiModel, AiRole, AiUsage } from './ai.js';
 export type { AuthCredentials, AuthResult, Registration, TokenStore, YhubUser } from './auth.js';
 export { YhubClient, SDK_VERSION } from './client.js';
 export type { YhubClientOptions, YhubMeta } from './client.js';

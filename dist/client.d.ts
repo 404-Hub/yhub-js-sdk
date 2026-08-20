@@ -1,4 +1,5 @@
 import { AuthClient, type TokenStore } from './auth.js';
+import { AiClient } from './ai.js';
 import { DatabaseClient } from './db.js';
 import { FeatureNamespace } from './feature.js';
 import { FilesClient } from './files.js';
@@ -35,7 +36,7 @@ export declare class YhubClient {
     readonly db: DatabaseClient;
     readonly auth: AuthClient;
     readonly files: FilesClient;
-    readonly ai: FeatureNamespace;
+    readonly ai: AiClient;
     readonly realtime: FeatureNamespace;
     private readonly baseUrl;
     private readonly fetcher;

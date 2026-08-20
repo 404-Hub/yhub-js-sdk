@@ -86,6 +86,36 @@ describe('YhubClient', () => {
     await expect(client.files.delete('file_1')).resolves.toBeUndefined()
   })
 
+  it('lists models, sends provider-neutral chats, and reads AI usage', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: 'small-model' }] }))
+      .mockResolvedValueOnce(jsonResponse({
+        data: {
+          id: 'chat_1',
+          model: 'small-model',
+          message: { role: 'assistant', content: 'Hello!' },
+          usage: { input_tokens: 4, output_tokens: 2, total_tokens: 6 },
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        data: { requests: 1, tokens: 6, request_budget: 100, token_budget: 10000 },
+      }))
+    const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock, token: 'ydb_ai' })
+
+    await expect(client.ai.models()).resolves.toEqual([{ id: 'small-model' }])
+    await expect(client.ai.chat([{ role: 'user', content: 'Hi' }], { maxOutputTokens: 64 })).resolves.toMatchObject({
+      message: { content: 'Hello!' },
+      usage: { total_tokens: 6 },
+    })
+    await expect(client.ai.usage()).resolves.toMatchObject({ requests: 1, tokens: 6 })
+
+    const [, chatOptions] = fetchMock.mock.calls[1]
+    expect(JSON.parse(String(chatOptions?.body))).toEqual({
+      messages: [{ role: 'user', content: 'Hi' }],
+      max_output_tokens: 64,
+    })
+  })
+
   it('reports browser upload progress through XMLHttpRequest', async () => {
     const OriginalXHR = globalThis.XMLHttpRequest
     class MockXHR {
