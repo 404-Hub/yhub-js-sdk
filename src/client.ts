@@ -5,8 +5,9 @@ import { YhubError } from './error.js'
 import { FeatureNamespace } from './feature.js'
 import { FilesClient } from './files.js'
 import type { FileUploadProgress } from './files.js'
+import { TelegramClient } from './telegram.js'
 
-export const SDK_VERSION = '1.0.0'
+export const SDK_VERSION = '1.1.0'
 
 export interface YhubMeta {
   site?: string
@@ -46,6 +47,7 @@ export class YhubClient {
   readonly auth: AuthClient
   readonly files: FilesClient
   readonly ai: AiClient
+  readonly telegram: TelegramClient
   readonly realtime = new FeatureNamespace('realtime')
 
   private readonly baseUrl: string
@@ -66,6 +68,7 @@ export class YhubClient {
     this.db = new DatabaseClient(this)
     this.files = new FilesClient(this)
     this.ai = new AiClient(this)
+    this.telegram = new TelegramClient(this)
   }
 
   meta(): Promise<YhubMeta> {

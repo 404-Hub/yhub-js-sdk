@@ -19,7 +19,7 @@ export interface Registration extends AuthCredentials {
 
 export interface YhubUser {
   id: number
-  email: string
+  email: string | null
   name: string | null
   created_at: string
   updated_at: string
@@ -78,6 +78,15 @@ export class AuthClient {
 
   async login(input: AuthCredentials): Promise<AuthResult> {
     const result = await this.client.request<AuthResult>('POST', '/auth/login', { body: input, token: null })
+    await this.store.set(result.token)
+    return result
+  }
+
+  async loginWithTelegram(initData: string): Promise<AuthResult> {
+    const result = await this.client.request<AuthResult>('POST', '/auth/telegram', {
+      body: { init_data: initData },
+      token: null,
+    })
     await this.store.set(result.token)
     return result
   }

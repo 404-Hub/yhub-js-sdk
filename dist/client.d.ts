@@ -4,7 +4,8 @@ import { DatabaseClient } from './db.js';
 import { FeatureNamespace } from './feature.js';
 import { FilesClient } from './files.js';
 import type { FileUploadProgress } from './files.js';
-export declare const SDK_VERSION = "1.0.0";
+import { TelegramClient } from './telegram.js';
+export declare const SDK_VERSION = "1.1.0";
 export interface YhubMeta {
     site?: string;
     features: {
@@ -37,6 +38,7 @@ export declare class YhubClient {
     readonly auth: AuthClient;
     readonly files: FilesClient;
     readonly ai: AiClient;
+    readonly telegram: TelegramClient;
     readonly realtime: FeatureNamespace;
     private readonly baseUrl;
     private readonly fetcher;

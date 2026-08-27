@@ -1,8 +1,11 @@
-import { rename, rm } from 'node:fs/promises'
+import { readFile, rename, rm } from 'node:fs/promises'
 import { build } from 'esbuild'
 import ts from 'typescript'
 
 await rm('dist', { recursive: true, force: true })
+
+const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+const banner = `/*! @yhub-cloud/sdk v${packageJson.version} */`
 
 await Promise.all([
   build({
@@ -13,7 +16,7 @@ await Promise.all([
     globalName: 'YhubSDK',
     target: ['es2020'],
     minify: true,
-    banner: { js: '/*! @yhub-cloud/sdk v1.0.0 */' },
+    banner: { js: banner },
     footer: { js: 'globalThis.yhub=YhubSDK.yhub;' },
   }),
   build({
@@ -23,7 +26,7 @@ await Promise.all([
     format: 'esm',
     target: ['es2020'],
     minify: true,
-    banner: { js: '/*! @yhub-cloud/sdk v1.0.0 */' },
+    banner: { js: banner },
   }),
 ])
 

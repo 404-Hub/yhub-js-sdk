@@ -14,7 +14,7 @@ export interface Registration extends AuthCredentials {
 }
 export interface YhubUser {
     id: number;
-    email: string;
+    email: string | null;
     name: string | null;
     created_at: string;
     updated_at: string;
@@ -30,6 +30,7 @@ export declare class AuthClient {
     token(): Promise<string | null>;
     register(input: Registration): Promise<AuthResult>;
     login(input: AuthCredentials): Promise<AuthResult>;
+    loginWithTelegram(initData: string): Promise<AuthResult>;
     me(): Promise<YhubUser>;
     logout(): Promise<void>;
 }

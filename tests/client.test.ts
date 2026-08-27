@@ -22,7 +22,7 @@ describe('YhubClient', () => {
 
     const [createUrl, createOptions] = fetchMock.mock.calls[0]
     expect(String(createUrl)).toBe('https://demo.yhub.net/api/posts')
-    expect(new Headers(createOptions?.headers).get('X-YHub-SDK-Version')).toBe('1.0.0')
+    expect(new Headers(createOptions?.headers).get('X-YHub-SDK-Version')).toBe('1.1.0')
     expect(fetchMock.mock.calls[1][0].toString()).toContain('limit=20&offset=0')
   })
 
@@ -43,6 +43,16 @@ describe('YhubClient', () => {
 
     expect(tokens.set).toHaveBeenCalledWith('yusr_test')
     expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('Authorization')).toBe('Bearer yusr_test')
+  })
+
+  it('exchanges Telegram init data and stores the returned app-user token', async () => {
+    const tokens = { value: null as string | null, get: () => tokens.value, set: (token: string) => { tokens.value = token }, remove: () => { tokens.value = null } }
+    fetchMock.mockResolvedValue(jsonResponse({ token: 'yusr_telegram', user: { id: 7, email: null } }))
+    const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock, tokenStore: tokens })
+
+    await expect(client.auth.loginWithTelegram('user=%7B%22id%22%3A7%7D')).resolves.toMatchObject({ token: 'yusr_telegram' })
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ init_data: 'user=%7B%22id%22%3A7%7D' })
+    expect(tokens.value).toBe('yusr_telegram')
   })
 
   it('preserves validation errors', async () => {
