@@ -26,6 +26,7 @@ export interface AuthResult {
 export declare class AuthClient {
     private readonly client;
     private readonly store;
+    private readonly initialization;
     constructor(client: YhubClient, store?: TokenStore, initialToken?: string);
     token(): Promise<string | null>;
     register(input: Registration): Promise<AuthResult>;

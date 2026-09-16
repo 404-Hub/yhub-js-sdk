@@ -45,6 +45,137 @@ describe('YhubClient', () => {
     expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('Authorization')).toBe('Bearer yusr_test')
   })
 
+  it('waits for an asynchronous initial token before the first request', async () => {
+    let releaseInitialToken!: () => void
+    const initialTokenReady = new Promise<void>(resolve => { releaseInitialToken = resolve })
+    const tokens = {
+      get: vi.fn(() => 'yusr_initial'),
+      set: vi.fn((_token: string) => initialTokenReady),
+      remove: vi.fn(),
+    }
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+    const client = new YhubClient({
+      baseUrl: 'https://demo.yhub.net',
+      fetch: fetchMock,
+      token: 'yusr_initial',
+      tokenStore: tokens,
+    })
+
+    const request = client.db.collection('posts').list()
+    await Promise.resolve()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    releaseInitialToken()
+    await request
+
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer yusr_initial')
+  })
+
+  it('surfaces an asynchronous initial token failure', async () => {
+    const initializationError = new Error('token store unavailable')
+    const tokens = {
+      get: vi.fn(() => null),
+      set: vi.fn((_token: string) => Promise.reject(initializationError)),
+      remove: vi.fn(),
+    }
+    const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock, token: 'yusr_initial', tokenStore: tokens })
+
+    await expect(client.auth.token()).rejects.toThrow(initializationError)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to memory when browser localStorage access is denied', async () => {
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        get localStorage(): never {
+          throw new Error('localStorage is unavailable')
+        },
+      },
+    })
+    fetchMock.mockResolvedValue(jsonResponse({ user: { id: 1, email: 'a@example.com' } }))
+
+    try {
+      const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock, token: 'yusr_memory' })
+
+      await client.auth.me()
+      expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer yusr_memory')
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow)
+      } else {
+        Reflect.deleteProperty(globalThis, 'window')
+      }
+    }
+  })
+
+  it('keeps auth usable when localStorage methods throw', async () => {
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const unavailableStorage = {
+      getItem(): never { throw new Error('read denied') },
+      setItem(): never { throw new Error('write denied') },
+      removeItem(): never { throw new Error('remove denied') },
+    }
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: unavailableStorage } })
+    fetchMock.mockResolvedValue(jsonResponse({ user: { id: 1, email: 'a@example.com' } }))
+
+    try {
+      const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock, token: 'yusr_memory' })
+
+      await client.auth.me()
+      expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer yusr_memory')
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow)
+      } else {
+        Reflect.deleteProperty(globalThis, 'window')
+      }
+    }
+  })
+
+  it('does not resurrect a stale storage token after access fails', async () => {
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    let storageAvailable = true
+    let storedToken: string | null = 'yusr_stale'
+    const storage = {
+      getItem(): string | null {
+        if (!storageAvailable) throw new Error('read denied')
+        return storedToken
+      },
+      setItem(_key: string, token: string): void {
+        if (!storageAvailable) throw new Error('write denied')
+        storedToken = token
+      },
+      removeItem(): void {
+        if (!storageAvailable) throw new Error('remove denied')
+        storedToken = null
+      },
+    }
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage } })
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ user: { id: 1, email: 'a@example.com' } }))
+      .mockResolvedValueOnce(jsonResponse(undefined, 204))
+      .mockResolvedValueOnce(jsonResponse({ user: { id: 1, email: 'a@example.com' } }))
+
+    try {
+      const client = new YhubClient({ baseUrl: 'https://demo.yhub.net', fetch: fetchMock })
+
+      await client.auth.me()
+      storageAvailable = false
+      await client.auth.logout()
+      await client.auth.me()
+
+      expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('Authorization')).toBeNull()
+    } finally {
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow)
+      } else {
+        Reflect.deleteProperty(globalThis, 'window')
+      }
+    }
+  })
+
   it('exchanges Telegram init data and stores the returned app-user token', async () => {
     const tokens = { value: null as string | null, get: () => tokens.value, set: (token: string) => { tokens.value = token }, remove: () => { tokens.value = null } }
     fetchMock.mockResolvedValue(jsonResponse({ token: 'yusr_telegram', user: { id: 7, email: null } }))
