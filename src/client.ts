@@ -2,12 +2,12 @@ import { AuthClient, type TokenStore } from './auth.js'
 import { AiClient } from './ai.js'
 import { DatabaseClient } from './db.js'
 import { YhubError } from './error.js'
-import { FeatureNamespace } from './feature.js'
+import { RealtimeClient, type WebSocketFactory } from './realtime.js'
 import { FilesClient } from './files.js'
 import type { FileUploadProgress } from './files.js'
 import { TelegramClient } from './telegram.js'
 
-export const SDK_VERSION = '1.1.0'
+export const SDK_VERSION = '1.2.0'
 
 export interface YhubMeta {
   site?: string
@@ -31,6 +31,7 @@ export interface YhubClientOptions {
   token?: string
   tokenStore?: TokenStore
   fetch?: typeof fetch
+  webSocketFactory?: WebSocketFactory
 }
 
 interface RequestOptions {
@@ -48,7 +49,7 @@ export class YhubClient {
   readonly files: FilesClient
   readonly ai: AiClient
   readonly telegram: TelegramClient
-  readonly realtime = new FeatureNamespace('realtime')
+  readonly realtime: RealtimeClient
 
   private readonly baseUrl: string
   private readonly fetcher: typeof fetch
@@ -69,6 +70,7 @@ export class YhubClient {
     this.files = new FilesClient(this)
     this.ai = new AiClient(this)
     this.telegram = new TelegramClient(this)
+    this.realtime = new RealtimeClient(this, options.webSocketFactory)
   }
 
   meta(): Promise<YhubMeta> {

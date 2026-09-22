@@ -22,7 +22,7 @@ describe('YhubClient', () => {
 
     const [createUrl, createOptions] = fetchMock.mock.calls[0]
     expect(String(createUrl)).toBe('https://demo.yhub.net/api/posts')
-    expect(new Headers(createOptions?.headers).get('X-YHub-SDK-Version')).toBe('1.1.0')
+    expect(new Headers(createOptions?.headers).get('X-YHub-SDK-Version')).toBe('1.2.0')
     expect(fetchMock.mock.calls[1][0].toString()).toContain('limit=20&offset=0')
   })
 

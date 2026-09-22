@@ -15,3 +15,5 @@ export type { TelegramInsets, TelegramLifecycleEvent, TelegramSession, TelegramS
 import { YhubClient } from './client.js';
 export declare const yhub: YhubClient;
 export default yhub;
+export { RealtimeClient, RealtimeRoom } from './realtime.js';
+export type { RealtimeEvent, RealtimeMember, RealtimeOptions, RealtimeStatus, WebSocketFactory } from './realtime.js';
