@@ -1,6 +1,9 @@
 import type { YhubClient } from './client.js';
 export type RecordId = string | number;
 export type YhubRecord = Record<string, unknown>;
+export type WriteResult<T extends YhubRecord = YhubRecord> = Partial<T> & {
+    id: RecordId;
+};
 export interface ListOptions extends Record<string, number | undefined> {
     limit?: number;
     offset?: number;
@@ -11,9 +14,9 @@ export declare class Collection<T extends YhubRecord = YhubRecord> {
     constructor(client: YhubClient, name: string);
     list(options?: ListOptions): Promise<T[]>;
     get(id: RecordId): Promise<T>;
-    create(data: Partial<T>): Promise<T>;
-    update(id: RecordId, data: Partial<T>): Promise<T>;
-    patch(id: RecordId, data: Partial<T>): Promise<T>;
+    create(data: Partial<T>): Promise<WriteResult<T>>;
+    update(id: RecordId, data: Partial<T>): Promise<WriteResult<T>>;
+    patch(id: RecordId, data: Partial<T>): Promise<WriteResult<T>>;
     delete(id: RecordId): Promise<void>;
     private path;
 }

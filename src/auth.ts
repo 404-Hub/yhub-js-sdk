@@ -1,4 +1,5 @@
 import type { YhubClient } from './client.js'
+import { YhubError } from './error.js'
 
 export type MaybePromise<T> = T | Promise<T>
 
@@ -17,12 +18,21 @@ export interface Registration extends AuthCredentials {
   name?: string
 }
 
+export type AccessAction = 'read' | 'create' | 'update' | 'delete'
+export type AccessScope = 'owner' | 'all'
+export type AccessGrant = { entity: string } & (
+  { action: 'create'; scope?: never } |
+  { action: Exclude<AccessAction, 'create'>; scope: AccessScope }
+)
+
 export interface YhubUser {
   id: number
   email: string | null
   name: string | null
   created_at: string
   updated_at: string
+  roles?: string[]
+  permissions?: AccessGrant[]
 }
 
 export interface AuthResult {
@@ -119,6 +129,9 @@ const defaultTokenStore = (): TokenStore => {
 export class AuthClient {
   private readonly store: TokenStore
   private readonly initialization: Promise<void>
+  private profile: YhubUser | null = null
+  private generation = 0
+  private tokenMutation: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly client: YhubClient,
@@ -134,6 +147,27 @@ export class AuthClient {
     void this.initialization.catch(() => undefined)
   }
 
+  get rolesSupported(): boolean {
+    return Array.isArray(this.profile?.roles) && Array.isArray(this.profile?.permissions)
+  }
+
+  can(entity: string, action: AccessAction, scope?: AccessScope): boolean {
+    if (!this.rolesSupported) return false
+    return this.profile!.permissions!.some(grant => grant.entity === entity && grant.action === action && (
+      scope === undefined || (grant.action !== 'create' && (grant.scope === 'all' || grant.scope === scope))
+    ))
+  }
+
+  private async persistToken(generation: number, token: string | null): Promise<void> {
+    const mutation = this.tokenMutation.then(async () => {
+      if (generation !== this.generation) return
+      if (token === null) await this.store.remove()
+      else await this.store.set(token)
+    })
+    this.tokenMutation = mutation.catch(() => undefined)
+    await mutation
+  }
+
   async token(): Promise<string | null> {
     await this.initialization
 
@@ -141,42 +175,62 @@ export class AuthClient {
   }
 
   async register(input: Registration): Promise<AuthResult> {
+    const generation = ++this.generation
+    this.profile = null
     await this.initialization
     const result = await this.client.request<AuthResult>('POST', '/auth/register', { body: input, token: null })
-    await this.store.set(result.token)
+    await this.persistToken(generation, result.token)
+    if (generation === this.generation) this.profile = result.user
     return result
   }
 
   async login(input: AuthCredentials): Promise<AuthResult> {
+    const generation = ++this.generation
+    this.profile = null
     await this.initialization
     const result = await this.client.request<AuthResult>('POST', '/auth/login', { body: input, token: null })
-    await this.store.set(result.token)
+    await this.persistToken(generation, result.token)
+    if (generation === this.generation) this.profile = result.user
     return result
   }
 
   async loginWithTelegram(initData: string): Promise<AuthResult> {
+    const generation = ++this.generation
+    this.profile = null
     await this.initialization
     const result = await this.client.request<AuthResult>('POST', '/auth/telegram', {
       body: { init_data: initData },
       token: null,
     })
-    await this.store.set(result.token)
+    await this.persistToken(generation, result.token)
+    if (generation === this.generation) this.profile = result.user
     return result
   }
 
   async me(): Promise<YhubUser> {
+    const generation = this.generation
     await this.initialization
-    const result = await this.client.request<{ user: YhubUser }>('GET', '/auth/me')
-    return result.user
+    try {
+      const result = await this.client.request<{ user: YhubUser }>('GET', '/auth/me')
+      if (generation === this.generation) this.profile = result.user
+      return result.user
+    } catch (error) {
+      if (error instanceof YhubError && error.status === 401 && generation === this.generation) this.profile = null
+      throw error
+    }
   }
 
   async logout(): Promise<void> {
+    const generation = ++this.generation
+    this.profile = null
     await this.initialization
 
     try {
-      await this.client.request<void>('POST', '/auth/logout')
+      const token = await this.token()
+      if (generation !== this.generation) return
+      await this.client.request<void>('POST', '/auth/logout', { token })
     } finally {
-      await this.store.remove()
+      await this.persistToken(generation, null)
     }
   }
 }

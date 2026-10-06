@@ -5,12 +5,13 @@ import { RealtimeClient, type WebSocketFactory } from './realtime.js';
 import { FilesClient } from './files.js';
 import type { FileUploadProgress } from './files.js';
 import { TelegramClient } from './telegram.js';
-export declare const SDK_VERSION = "1.2.0";
+export declare const SDK_VERSION = "1.3.0";
 export interface YhubMeta {
     site?: string;
     features: {
         database: boolean;
         auth: boolean;
+        roles?: boolean;
         files: boolean;
         ai: boolean;
         realtime: boolean;

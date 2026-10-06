@@ -57,3 +57,18 @@ The SDK renews its room ticket after a transient disconnect and keeps event subs
 npm ci
 npm run check
 ```
+
+### Roles and CRUD permissions
+
+SDK1.3 reads optional `roles` and `permissions` from runtime auth profiles. After login, registration, Telegram login or `auth.me()`, check `auth.rolesSupported`. It is false on older runtimes.
+
+```js
+await yhub.auth.me()
+if (yhub.auth.can('posts', 'update', 'all')) {
+  // Show controls for editing any post.
+}
+```
+
+`can('posts','update')` also accepts an owner-only grant; check the row owner for a particular record. Refresh `me()` after role changes. The server checks each request independently. App-user create/update on role-policy tables returns only `{id}`; read the record separately if needed. Collection writes return `WriteResult<T>` with required ID and optional record fields.
+
+Owner API role management uses separate platform token scopes and must stay outside browser code. Check the live agent manifest before requesting the released capability.

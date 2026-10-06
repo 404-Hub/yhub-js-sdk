@@ -2,6 +2,7 @@ import type { YhubClient } from './client.js'
 
 export type RecordId = string | number
 export type YhubRecord = Record<string, unknown>
+export type WriteResult<T extends YhubRecord = YhubRecord> = Partial<T> & { id: RecordId }
 
 export interface ListOptions extends Record<string, number | undefined> {
   limit?: number
@@ -25,18 +26,18 @@ export class Collection<T extends YhubRecord = YhubRecord> {
     return response.data
   }
 
-  async create(data: Partial<T>): Promise<T> {
-    const response = await this.client.request<{ data: T }>('POST', `/${this.name}`, { body: data })
+  async create(data: Partial<T>): Promise<WriteResult<T>> {
+    const response = await this.client.request<{ data: WriteResult<T> }>('POST', `/${this.name}`, { body: data })
     return response.data
   }
 
-  async update(id: RecordId, data: Partial<T>): Promise<T> {
-    const response = await this.client.request<{ data: T }>('PUT', this.path(id), { body: data })
+  async update(id: RecordId, data: Partial<T>): Promise<WriteResult<T>> {
+    const response = await this.client.request<{ data: WriteResult<T> }>('PUT', this.path(id), { body: data })
     return response.data
   }
 
-  async patch(id: RecordId, data: Partial<T>): Promise<T> {
-    const response = await this.client.request<{ data: T }>('PATCH', this.path(id), { body: data })
+  async patch(id: RecordId, data: Partial<T>): Promise<WriteResult<T>> {
+    const response = await this.client.request<{ data: WriteResult<T> }>('PATCH', this.path(id), { body: data })
     return response.data
   }
 
